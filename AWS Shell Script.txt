@@ -1,0 +1,104 @@
+AWS Shell Script in pipeline
+===============================
+
+
+#INSTALL AWS CLI
+ pip install setuptools
+
+ pip install wheel
+
+ pip install awscli --upgrade
+
+#INSTALL KUBECTL
+
+curl -o kubectl https://s3.us-west-2.amazonaws.com/amazon-eks/1.21.2/2021-07-05/bin/linux/amd64/kubectl
+
+chmod +x ./kubectl
+
+ mv ./kubectl /usr/bin/kubectl
+
+#INSTALL AUTHENTICATOR
+
+curl -o aws-iam-authenticator https://s3.us-west-2.amazonaws.com/amazon-eks/1.21.2/2021-07-05/bin/linux/amd64/aws-iam-authenticator
+
+
+
+ mv ./aws-iam-authenticator /usr/bin/aws-iam-authenticator
+ chmod +x /usr/bin/aws-iam-authenticator
+
+
+# aws configure set aws_access_key_id xxxxxxxxxxxxxxxxxxx
+
+
+
+
+aws sts get-caller-identity
+
+ 
+aws eks --region us-east-1 update-kubeconfig --name eksDemo
+
+kubectl delete namespace eks-sample-app
+
+kubectl create namespace eks-sample-app
+
+cat << EOF > eks-sample-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eks-sample-linux-deployment
+  namespace: eks-sample-app
+  labels:
+    app: eks-sample-linux-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: eks-sample-linux-app
+  template:
+    metadata:
+      labels:
+        app: eks-sample-linux-app
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - arm64
+      containers:
+      - name: nginx
+        image: xxxxxxxxxxxxxx.dkr.ecr.us-east-1.amazonaws.com/test-docker:latest
+        ports:
+        - name: http
+          containerPort: 80
+        imagePullPolicy: Always
+      nodeSelector:
+        kubernetes.io/os: linux
+EOF
+
+cat << EOF > eks-sample-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: eks-sample-linux-service
+  namespace: eks-sample-app
+  labels:
+    app: eks-sample-linux-app
+spec:
+  type: LoadBalancer
+  selector:
+    app: eks-sample-linux-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+EOF
+
+#DEPLOY UPDATE
+kubectl apply -f eks-sample-deployment.yaml
+
+kubectl apply -f eks-sample-service.yaml
